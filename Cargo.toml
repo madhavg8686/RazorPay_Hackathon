@@ -1,0 +1,23 @@
+[package]
+name = "fraud_spike_detector"
+version = "0.1.0"
+edition = "2021"
+default-run = "fraud_spike_detector"
+
+[lib]
+name = "fraud_spike_detector"
+path = "src/lib.rs"
+crate-type = ["cdylib", "rlib"]
+
+[[bin]]
+name = "fraud_spike_detector"
+path = "src/main.rs"
+
+[dependencies]
+pyo3 = { version = "0.21", features = ["extension-module"] }
+tokio = { version = "1.35", features = ["full"] }
+rdkafka = { version = "0.36", features = ["tokio"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+dashmap = "5.5"
+rand = "0.8"
