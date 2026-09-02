@@ -1,5 +1,6 @@
 try:
     from fastapi import FastAPI
+    from fastapi import WebSocket, WebSocketDisconnect
     from fastapi.middleware.cors import CORSMiddleware
 except ImportError:  # Keep the module importable when optional API dependencies are absent.
     class FastAPI:
@@ -18,12 +19,19 @@ except ImportError:  # Keep the module importable when optional API dependencies
     class CORSMiddleware:
         pass
 
+    class WebSocket:
+        pass
+
+    class WebSocketDisconnect(Exception):
+        pass
+
 try:
     from pydantic import BaseModel
 except ImportError:
     class BaseModel:
         pass
 import numpy as np
+import asyncio
 import time
 
 app = FastAPI(title="AI Risk Manager - Fraud Detection Engine API")
@@ -71,6 +79,30 @@ def get_live_stream():
         for i in range(1, 11)
     ]
     return {"transactions": sample_txs}
+
+@app.websocket("/ws/transactions")
+async def transaction_stream(websocket: WebSocket):
+    await websocket.accept()
+    transaction_id = 0
+    try:
+        while True:
+            transaction_id += 1
+            is_warm_path = transaction_id % 3 == 0
+            is_fraud = 1 if transaction_id % 5 == 0 else 0
+            await websocket.send_json({
+                "id": f"tx_{transaction_id:04d}",
+                "merchant_id": "merchant_123",
+                "amount": round(float(np.random.exponential(50) + 10), 2),
+                "conformal_set": [0, 1] if is_warm_path else [0],
+                "action": "HUMAN_REVIEW" if is_warm_path else ("AUTO_BLOCKED" if is_fraud else "AUTO_CLEARED"),
+                "stage1_latency_us": 120,
+                "stage2_latency_us": 1850 if is_warm_path else 0,
+                "timestamp": time.strftime("%H:%M:%S"),
+                "is_actual_fraud": is_fraud,
+            })
+            await asyncio.sleep(1)
+    except WebSocketDisconnect:
+        pass
 
 if __name__ == "__main__":
     import uvicorn
