@@ -52,60 +52,70 @@ export default function Home() {
   });
 
   useEffect(() => {
-    const ws = new WebSocket('ws://localhost:8000/ws/transactions');
+    // Guard against Server-Side Rendering (SSR) build environment
+    if (typeof window === 'undefined') return;
+
+    const wsUrl = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8000/ws/transactions';
+    const ws = new WebSocket(wsUrl);
 
     ws.onopen = () => setIsConnected(true);
     ws.onclose = () => setIsConnected(false);
     ws.onerror = () => setIsConnected(false);
 
     ws.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-      const isWarmPath = data.stage2_latency_us > 0;
-      const riskScore = parseFloat((isWarmPath ? 0.72 + Math.random() * 0.25 : Math.random() * 0.35).toFixed(3));
+      try {
+        const data = JSON.parse(event.data);
+        const isWarmPath = data.stage2_latency_us > 0;
+        const riskScore = parseFloat((isWarmPath ? 0.72 + Math.random() * 0.25 : Math.random() * 0.35).toFixed(3));
 
-      const newTx: Transaction = {
-        tx_id: data.id,
-        merchant_id: data.merchant_id || 'mch_902',
-        amount: data.amount,
-        stage1_action: isWarmPath ? 'Escalated' : 'Auto-Cleared',
-        conformal_set: `{${data.conformal_set.join(', ')}}`,
-        final_decision: data.action,
-        risk_score: riskScore,
-        stage1_latency_us: data.stage1_latency_us || 120,
-        stage2_latency_us: data.stage2_latency_us || 0,
-        timestamp: data.timestamp || new Date().toLocaleTimeString(),
-        is_actual_fraud: data.is_actual_fraud ?? 0,
-      };
-
-      setTransactions((prev) => [newTx, ...prev.slice(0, 19)]);
-
-      setScoreMetrics((prev) => ({
-        highestScore: Math.max(prev.highestScore, riskScore),
-        lowestScore: Math.min(prev.lowestScore, riskScore),
-      }));
-
-      if (data.action === 'HUMAN_REVIEW') {
-        setReviewQueue((prev) => [newTx, ...prev.filter((t) => t.tx_id !== newTx.tx_id)]);
-      }
-
-      setStats((prev) => {
-        let marginChange = 0;
-        if (data.action === 'AUTO_BLOCKED' && data.is_actual_fraud === 1) marginChange += data.amount;
-        if (data.action === 'HUMAN_REVIEW') marginChange -= 15.0; 
-        if (data.action === 'AUTO_CLEARED' && data.is_actual_fraud === 1) marginChange -= (data.amount + 25.0); 
-
-        return {
-          totalCount: prev.totalCount + 1,
-          hotPathCount: prev.hotPathCount + (isWarmPath ? 0 : 1),
-          warmPathCount: prev.warmPathCount + (isWarmPath ? 1 : 0),
-          netSavedMargin: prev.netSavedMargin + marginChange,
-          avgHotPathUs: Math.round((prev.avgHotPathUs * prev.totalCount + data.stage1_latency_us) / (prev.totalCount + 1)),
-          avgWarmPathMs: isWarmPath ? parseFloat(((prev.avgWarmPathMs * prev.warmPathCount + data.stage2_latency_us / 1000) / (prev.warmPathCount + 1)).toFixed(2)) : prev.avgWarmPathMs,
+        const newTx: Transaction = {
+          tx_id: data.id,
+          merchant_id: data.merchant_id || 'mch_902',
+          amount: data.amount,
+          stage1_action: isWarmPath ? 'Escalated' : 'Auto-Cleared',
+          conformal_set: `{${data.conformal_set.join(', ')}}`,
+          final_decision: data.action,
+          risk_score: riskScore,
+          stage1_latency_us: data.stage1_latency_us || 120,
+          stage2_latency_us: data.stage2_latency_us || 0,
+          timestamp: data.timestamp || new Date().toLocaleTimeString(),
+          is_actual_fraud: data.is_actual_fraud ?? 0,
         };
-      });
+
+        setTransactions((prev) => [newTx, ...prev.slice(0, 19)]);
+
+        setScoreMetrics((prev) => ({
+          highestScore: Math.max(prev.highestScore, riskScore),
+          lowestScore: Math.min(prev.lowestScore, riskScore),
+        }));
+
+        if (data.action === 'HUMAN_REVIEW') {
+          setReviewQueue((prev) => [newTx, ...prev.filter((t) => t.tx_id !== newTx.tx_id)]);
+        }
+
+        setStats((prev) => {
+          let marginChange = 0;
+          if (data.action === 'AUTO_BLOCKED' && data.is_actual_fraud === 1) marginChange += data.amount;
+          if (data.action === 'HUMAN_REVIEW') marginChange -= 15.0; 
+          if (data.action === 'AUTO_CLEARED' && data.is_actual_fraud === 1) marginChange -= (data.amount + 25.0); 
+
+          return {
+            totalCount: prev.totalCount + 1,
+            hotPathCount: prev.hotPathCount + (isWarmPath ? 0 : 1),
+            warmPathCount: prev.warmPathCount + (isWarmPath ? 1 : 0),
+            netSavedMargin: prev.netSavedMargin + marginChange,
+            avgHotPathUs: Math.round((prev.avgHotPathUs * prev.totalCount + data.stage1_latency_us) / (prev.totalCount + 1)),
+            avgWarmPathMs: isWarmPath ? parseFloat(((prev.avgWarmPathMs * prev.warmPathCount + data.stage2_latency_us / 1000) / (prev.warmPathCount + 1)).toFixed(2)) : prev.avgWarmPathMs,
+          };
+        });
+      } catch (err) {
+        console.error('Failed to parse WebSocket message:', err);
+      }
     };
 
-    return () => ws.close();
+    return () => {
+      ws.close();
+    };
   }, []);
 
   const resolveReview = (id: string) => {
