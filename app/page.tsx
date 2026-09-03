@@ -30,9 +30,12 @@ interface Transaction {
   stage2_latency_us: number;
   timestamp: string;
   is_actual_fraud: number;
+  addedAt?: number; // SLA timestamp tracker
 }
 
-// Utility function to strip citation tags from dynamic/static strings
+const REVIEW_SLA_SECONDS = 30; // 30-second SLA timeout deadline
+
+// Utility function to strip citation tags
 function cleanText(text: string): string {
   if (!text) return '';
   return text.replace(/\[?cite:\s*\d+\]?/gi, '').trim();
@@ -72,6 +75,7 @@ export default function Home() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [reviewQueue, setReviewQueue] = useState<Transaction[]>([]);
   const [isConnected, setIsConnected] = useState(false);
+  const [currentTime, setCurrentTime] = useState(Date.now());
   
   const [scoreMetrics, setScoreMetrics] = useState({
     highestScore: 0.000,
@@ -87,6 +91,7 @@ export default function Home() {
     avgWarmPathMs: 1.85,
   });
 
+  // 1. Polling Stream Effect
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
@@ -118,6 +123,7 @@ export default function Home() {
           stage2_latency_us: data.stage2_latency_us,
           timestamp: cleanText(data.timestamp),
           is_actual_fraud: data.is_actual_fraud,
+          addedAt: Date.now(), // Attach entry timestamp for SLA calculations
         };
 
         setTransactions((prev) => [newTx, ...prev.slice(0, 19)]);
@@ -163,16 +169,48 @@ export default function Home() {
     };
   }, []);
 
+  // 2. Real-time SLA Timeout Engine Effect
+  useEffect(() => {
+    const slaInterval = setInterval(() => {
+      const now = Date.now();
+      setCurrentTime(now);
+
+      setReviewQueue((prevQueue) => {
+        const expiredTxMap = new Map<string, string>();
+
+        prevQueue.forEach((tx) => {
+          const elapsed = tx.addedAt ? (now - tx.addedAt) / 1000 : 0;
+          if (elapsed >= REVIEW_SLA_SECONDS) {
+            // ML auto-resolve rule: Block if risk >= 0.50, otherwise approve
+            const autoDecision = tx.risk_score >= 0.50 ? 'AUTO_BLOCKED' : 'AUTO_CLEARED';
+            expiredTxMap.set(tx.tx_id, autoDecision);
+          }
+        });
+
+        if (expiredTxMap.size === 0) return prevQueue;
+
+        // Update decisions in live stream table for timed-out transactions
+        setTransactions((prevStream) =>
+          prevStream.map((tx) =>
+            expiredTxMap.has(tx.tx_id)
+              ? { ...tx, final_decision: expiredTxMap.get(tx.tx_id)! }
+              : tx
+          )
+        );
+
+        // Remove expired items from manual queue
+        return prevQueue.filter((tx) => !expiredTxMap.has(tx.tx_id));
+      });
+    }, 1000);
+
+    return () => clearInterval(slaInterval);
+  }, []);
+
   // Update resolution logic to update the transaction's decision in the live stream table
   const resolveReview = (id: string, decision: 'APPROVED' | 'BLOCKED') => {
-    // 1. Remove from the manual review queue
     setReviewQueue((prev) => prev.filter((item) => item.tx_id !== id));
-
-    // 2. Update decision status in the Live Stream Table
     setTransactions((prev) =>
-      prev.map((tx) =>
-        tx.tx_id === id ? { ...tx, final_decision: decision } : tx
-      )
+      prev.map((tx) => (tx.tx_id === id ? { ...tx, final_decision: decision } : tx))
     );
   };
 
@@ -235,7 +273,6 @@ export default function Home() {
 
       {/* Latency Benchmarks */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        {/* Stage 1 */}
         <div className="bg-slate-900 border border-orange-500/30 rounded-2xl p-5">
           <div className="flex justify-between items-start">
             <span className="text-xs font-bold uppercase tracking-wider text-orange-400 flex items-center gap-1.5">
@@ -255,7 +292,6 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Stage 2 */}
         <div className="bg-slate-900 border border-blue-500/30 rounded-2xl p-5">
           <div className="flex justify-between items-start">
             <span className="text-xs font-bold uppercase tracking-wider text-blue-400 flex items-center gap-1.5">
@@ -275,7 +311,6 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Throughput Gain */}
         <div className="bg-slate-900 border border-emerald-500/30 rounded-2xl p-5">
           <div className="flex justify-between items-start">
             <span className="text-xs font-bold uppercase tracking-wider text-emerald-400 flex items-center gap-1.5">
@@ -325,11 +360,20 @@ export default function Home() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {reviewQueue.map((tx) => {
               const risk = getCriticality(tx.risk_score);
+              const elapsed = tx.addedAt ? Math.floor((currentTime - tx.addedAt) / 1000) : 0;
+              const remainingSeconds = Math.max(0, REVIEW_SLA_SECONDS - elapsed);
 
               return (
                 <div key={tx.tx_id} className="bg-slate-950 border border-orange-500/40 rounded-xl p-4 flex flex-col justify-between space-y-3">
                   <div>
-                    {/* Fraud Likelihood Score & Criticality Tier */}
+                    {/* Live SLA Countdown Timer */}
+                    <div className="flex justify-between items-center mb-2 px-2.5 py-1 bg-slate-900 rounded-md border border-slate-800 text-[11px] font-mono">
+                      <span className="text-slate-400">ML Auto-Review In:</span>
+                      <span className={`font-bold ${remainingSeconds <= 10 ? 'text-rose-400 animate-pulse' : 'text-amber-400'}`}>
+                        {remainingSeconds}s
+                      </span>
+                    </div>
+
                     <div className="flex justify-between items-start mb-3 p-3 rounded-lg bg-slate-900 border border-slate-800">
                       <div>
                         <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block mb-0.5">
@@ -353,14 +397,12 @@ export default function Home() {
                   </div>
 
                   <div className="flex gap-2 pt-3 border-t border-slate-800">
-                    {/* Approved Action -> Sets decision in stream table to APPROVED */}
                     <button 
                       onClick={() => resolveReview(tx.tx_id, 'APPROVED')}
                       className="flex-1 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-lg flex items-center justify-center gap-1 transition"
                     >
                       <CheckCircle2 size={13} /> Approve
                     </button>
-                    {/* Blocked Action -> Sets decision in stream table to BLOCKED */}
                     <button 
                       onClick={() => resolveReview(tx.tx_id, 'BLOCKED')}
                       className="flex-1 py-1.5 bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs rounded-lg flex items-center justify-center gap-1 transition"
@@ -412,10 +454,9 @@ export default function Home() {
                     </td>
                     <td className="p-3 text-purple-300 font-bold">{cleanText(tx.conformal_set)}</td>
                     <td className="p-3">
-                      {/* Decision Badges: Green for Approved, Red for Blocked, Orange for Human Review */}
                       <span className={`px-2.5 py-1 rounded text-[10px] font-sans font-bold border ${
-                        tx.final_decision === 'AUTO_CLEARED' || tx.final_decision === 'APPROVED' ? 'bg-emerald-950 text-emerald-400 border-emerald-800' :
-                        tx.final_decision === 'AUTO_BLOCKED' || tx.final_decision === 'BLOCKED' || tx.final_decision === 'REJECTED' ? 'bg-rose-950 text-rose-400 border-rose-800' :
+                        tx.final_decision.includes('APPROVED') || tx.final_decision === 'AUTO_CLEARED' ? 'bg-emerald-950 text-emerald-400 border-emerald-800' :
+                        tx.final_decision.includes('BLOCKED') || tx.final_decision === 'AUTO_BLOCKED' || tx.final_decision === 'REJECTED' ? 'bg-rose-950 text-rose-400 border-rose-800' :
                         'bg-orange-950 text-orange-400 border-orange-800'
                       }`}>
                         {cleanText(tx.final_decision)}
