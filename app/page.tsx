@@ -44,10 +44,10 @@ export default function Home() {
 
   const [stats, setStats] = useState({
     totalCount: 0,
-    hotPathCount: 0,
+    fastPathCount: 0,
     coldPathCount: 0,
     netSavedMargin: 27135.19,
-    avgHotPathUs: 120,
+    avgFastPathUs: 120,
     avgColdPathMs: 1.85,
   });
 
@@ -103,10 +103,10 @@ export default function Home() {
 
           return {
             totalCount: prev.totalCount + 1,
-            hotPathCount: prev.hotPathCount + (isColdPath ? 0 : 1),
+            fastPathCount: prev.fastPathCount + (isColdPath ? 0 : 1),
             coldPathCount: prev.coldPathCount + (isColdPath ? 1 : 0),
             netSavedMargin: prev.netSavedMargin + marginChange,
-            avgHotPathUs: Math.round((prev.avgHotPathUs * prev.totalCount + data.stage1_latency_us) / (prev.totalCount + 1)),
+            avgFastPathUs: Math.round((prev.avgFastPathUs * prev.totalCount + data.stage1_latency_us) / (prev.totalCount + 1)),
             avgColdPathMs: isColdPath ? parseFloat(((prev.avgColdPathMs * prev.coldPathCount + data.stage2_latency_us / 1000) / (prev.coldPathCount + 1)).toFixed(2)) : prev.avgColdPathMs,
           };
         });
@@ -131,7 +131,7 @@ export default function Home() {
     setReviewQueue((prev) => prev.filter((item) => item.tx_id !== id));
   };
 
-  const offloadPct = stats.totalCount > 0 ? ((stats.hotPathCount / stats.totalCount) * 100).toFixed(1) : '94.2';
+  const offloadPct = stats.totalCount > 0 ? ((stats.fastPathCount / stats.totalCount) * 100).toFixed(1) : '94.2';
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 p-6 lg:p-8 font-sans">
@@ -146,7 +146,7 @@ export default function Home() {
               CASCADE RISK ENGINE <span className="text-[10px] tracking-widest text-blue-400 bg-blue-950 px-2.5 py-0.5 rounded-full border border-blue-800 font-mono">TRACK 02</span>
             </h1>
             <p className="text-xs text-slate-400 mt-0.5">
-              Two-Stage Hot/Cold Path Cascade + Conformal Risk Guarantees
+              Two-Stage Fast/Cold Path Cascade + Conformal Risk Guarantees
             </p>
           </div>
         </div>
@@ -194,14 +194,14 @@ export default function Home() {
         <div className="bg-slate-900 border border-amber-500/30 rounded-2xl p-5">
           <div className="flex justify-between items-start">
             <span className="text-xs font-bold uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
-              <Zap size={15} className="fill-amber-400" /> Stage 1 — Hot Path
+              <Zap size={15} className="fill-amber-400" /> Stage 1 — Fast Path
             </span>
             <span className="text-[10px] font-mono bg-amber-500/10 text-amber-300 border border-amber-500/30 px-2 py-0.5 rounded font-bold">
               LOGISTIC FILTER
             </span>
           </div>
           <div className="mt-3 flex items-baseline gap-2">
-            <span className="text-4xl font-bold text-amber-300 font-mono">{stats.avgHotPathUs}</span>
+            <span className="text-4xl font-bold text-amber-300 font-mono">{stats.avgFastPathUs}</span>
             <span className="text-amber-500 font-bold font-mono text-xs">μs / tx</span>
           </div>
           <div className="mt-3 pt-3 border-t border-slate-800 text-xs text-slate-400 flex justify-between items-center">
