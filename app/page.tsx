@@ -32,6 +32,12 @@ interface Transaction {
   is_actual_fraud: number;
 }
 
+// Utility function to strip citation tags like or cite:3 from dynamic/static strings
+function cleanText(text: string): string {
+  if (!text) return '';
+  return text.replace(/\[?cite:\s*\d+\]?/gi, '').trim();
+}
+
 // Helper function to derive Fraud Likelihood and Criticality Tiers
 function getCriticality(score: number) {
   const percentage = (score * 100).toFixed(1);
@@ -100,17 +106,18 @@ export default function Home() {
         const isWarmPath = data.stage2_latency_us > 0;
         const riskScore = data.risk_score;
 
+        // Clean dynamic string properties from API response
         const newTx: Transaction = {
-          tx_id: data.tx_id,
-          merchant_id: data.merchant_id,
+          tx_id: cleanText(data.tx_id),
+          merchant_id: cleanText(data.merchant_id),
           amount: data.amount,
-          stage1_action: data.stage1_action,
-          conformal_set: data.conformal_set,
-          final_decision: data.final_decision,
+          stage1_action: cleanText(data.stage1_action),
+          conformal_set: cleanText(data.conformal_set),
+          final_decision: cleanText(data.final_decision),
           risk_score: riskScore,
           stage1_latency_us: data.stage1_latency_us,
           stage2_latency_us: data.stage2_latency_us,
-          timestamp: data.timestamp,
+          timestamp: cleanText(data.timestamp),
           is_actual_fraud: data.is_actual_fraud,
         };
 
@@ -121,15 +128,15 @@ export default function Home() {
           lowestScore: Math.min(prev.lowestScore, riskScore),
         }));
 
-        if (data.final_decision === 'HUMAN_REVIEW') {
+        if (newTx.final_decision === 'HUMAN_REVIEW') {
           setReviewQueue((prev) => [newTx, ...prev.filter((t) => t.tx_id !== newTx.tx_id)]);
         }
 
         setStats((prev) => {
           let marginChange = 0;
-          if (data.final_decision === 'BLOCKED' && data.is_actual_fraud === 1) marginChange += data.amount;
-          if (data.final_decision === 'HUMAN_REVIEW') marginChange -= 15.0;
-          if (data.final_decision === 'APPROVED' && data.is_actual_fraud === 1) marginChange -= (data.amount + 25.0);
+          if (newTx.final_decision === 'BLOCKED' && data.is_actual_fraud === 1) marginChange += data.amount;
+          if (newTx.final_decision === 'HUMAN_REVIEW') marginChange -= 15.0;
+          if (newTx.final_decision === 'APPROVED' && data.is_actual_fraud === 1) marginChange -= (data.amount + 25.0);
 
           return {
             totalCount: prev.totalCount + 1,
@@ -176,7 +183,7 @@ export default function Home() {
               CASCADE RISK ENGINE <span className="text-[10px] tracking-widest text-blue-400 bg-blue-950 px-2.5 py-0.5 rounded-full border border-blue-800 font-mono">TRACK 02</span>
             </h1>
             <p className="text-xs text-slate-400 mt-0.5">
-              Two-Stage Hot/Warm Path Cascade + Conformal Risk Guarantees
+              {cleanText("Two-Stage Hot/Warm Path Cascade + Conformal Risk Guarantees")}
             </p>
           </div>
         </div>
@@ -247,7 +254,7 @@ export default function Home() {
               <Cpu size={15} /> Stage 2 — Warm Path
             </span>
             <span className="text-[10px] font-mono bg-blue-500/10 text-blue-300 border border-blue-500/30 px-2 py-0.5 rounded font-bold">
-              LIGHTGBM + CONFORMAL
+              {cleanText("LIGHTGBM + CONFORMAL")}
             </span>
           </div>
           <div className="mt-3 flex items-baseline gap-2">
@@ -329,7 +336,7 @@ export default function Home() {
 
                     <div className="flex justify-between text-xs font-mono text-slate-300 mb-1">
                       <span className="text-slate-400">TX ID:</span>
-                      <span className="font-bold text-white">{tx.tx_id}</span>
+                      <span className="font-bold text-white">{cleanText(tx.tx_id)}</span>
                     </div>
                     <div className="flex justify-between text-xs font-mono text-slate-300 mb-2">
                       <span className="text-slate-400">Amount:</span>
@@ -381,8 +388,8 @@ export default function Home() {
               {transactions.length > 0 ? (
                 transactions.map((tx) => (
                   <tr key={tx.tx_id} className="hover:bg-slate-800/40">
-                    <td className="p-3 text-slate-400">{tx.timestamp}</td>
-                    <td className="p-3 font-bold text-slate-100">{tx.tx_id}</td>
+                    <td className="p-3 text-slate-400">{cleanText(tx.timestamp)}</td>
+                    <td className="p-3 font-bold text-slate-100">{cleanText(tx.tx_id)}</td>
                     <td className="p-3 font-sans font-bold text-white">${tx.amount.toFixed(2)}</td>
                     <td className="p-3 font-bold text-slate-200">{tx.risk_score.toFixed(3)}</td>
                     <td className="p-3 text-amber-400 font-bold">{tx.stage1_latency_us} μs</td>
@@ -393,14 +400,14 @@ export default function Home() {
                         <span className="text-slate-600">Bypassed</span>
                       )}
                     </td>
-                    <td className="p-3 text-purple-300 font-bold">{tx.conformal_set}</td>
+                    <td className="p-3 text-purple-300 font-bold">{cleanText(tx.conformal_set)}</td>
                     <td className="p-3">
                       <span className={`px-2.5 py-1 rounded text-[10px] font-sans font-bold border ${
                         tx.final_decision === 'AUTO_CLEARED' ? 'bg-emerald-950 text-emerald-400 border-emerald-800' :
                         tx.final_decision === 'AUTO_BLOCKED' ? 'bg-rose-950 text-rose-400 border-rose-800' :
                         'bg-amber-950 text-amber-400 border-amber-800'
                       }`}>
-                        {tx.final_decision}
+                        {cleanText(tx.final_decision)}
                       </span>
                     </td>
                   </tr>
