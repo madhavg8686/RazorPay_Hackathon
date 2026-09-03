@@ -1,0 +1,9 @@
+error: can't find lib `fraud_spike_detector` at path `/Users/gk/Desktop/real razor/razorpay/src/lib.rs`
+ --> /Users/gk/Desktop/real razor/razorpay/Cargo.toml
+error: can't find lib `fraud_spike_detector` at path `/Users/gk/Desktop/real razor/razorpay/src/lib.rs`
+ --> /Users/gk/Desktop/real razor/razorpay/Cargo.toml
+error: can't find bin `fraud_spike_detector` at path `/Users/gk/Desktop/real razor/razorpay/src/main.rs`
+ --> /Users/gk/Desktop/real razor/razorpay/Cargo.toml
+error: can't find bin `fraud_spike_detector` at path `/Users/gk/Desktop/real razor/razorpay/src/main.rs`
+ --> /Users/gk/Desktop/real razor/razorpay/Cargo.toml
+error: could not compile due to 4 previous target resolution errors
