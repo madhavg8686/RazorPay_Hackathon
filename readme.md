@@ -23,6 +23,7 @@ npm run dev
 ```
 
 The Python dependencies used by the Vercel function are listed in `requirements.txt`.
+The Rust extension's maturin metadata is kept in `maturin-project.toml` so Vercel does not package the Rust project into the API function.
 
 ## Known limitations
 
