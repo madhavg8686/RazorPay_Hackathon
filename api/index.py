@@ -1,18 +1,3 @@
-"""
-AI Risk Manager - Fraud Detection Engine API
-
-Deployed as a Vercel Python serverless function at /api/index.py
-(mapped via vercel.json rewrites: /api/(.*) -> /api/index.py)
-
-NOTE: Vercel serverless functions are stateless and short-lived per request,
-so they cannot hold an open WebSocket connection. The original /ws/transactions
-WebSocket endpoint has been replaced with a polling endpoint
-(/api/live-stream-tick) that the frontend can call on an interval (e.g. every
-1s) to get the same "streaming" effect. If you need a true persistent
-WebSocket later, that piece would need to run on a separate always-on host
-(Railway, Render, Fly.io) rather than Vercel.
-"""
-
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
