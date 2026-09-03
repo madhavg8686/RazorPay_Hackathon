@@ -86,7 +86,7 @@ export default function Home() {
     totalCount: 0,
     hotPathCount: 0,
     warmPathCount: 0,
-    netSavedMargin: 27135.19,
+    netSavedMargin: 2265000.00, // Margin in INR
     avgHotPathUs: 120,
     avgWarmPathMs: 1.85,
   });
@@ -111,6 +111,15 @@ export default function Home() {
         const isWarmPath = data.stage2_latency_us > 0;
         const riskScore = data.risk_score;
 
+        // Force timestamp formatting to IST (Asia/Kolkata) on the client side
+        const istTimestamp = new Date().toLocaleTimeString('en-IN', {
+          timeZone: 'Asia/Kolkata',
+          hour12: false,
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+        });
+
         const newTx: Transaction = {
           tx_id: cleanText(data.tx_id),
           merchant_id: cleanText(data.merchant_id),
@@ -121,7 +130,7 @@ export default function Home() {
           risk_score: riskScore,
           stage1_latency_us: data.stage1_latency_us,
           stage2_latency_us: data.stage2_latency_us,
-          timestamp: cleanText(data.timestamp),
+          timestamp: istTimestamp,
           is_actual_fraud: data.is_actual_fraud,
           addedAt: Date.now(), // Attach entry timestamp for SLA calculations
         };
@@ -140,8 +149,8 @@ export default function Home() {
         setStats((prev) => {
           let marginChange = 0;
           if (newTx.final_decision === 'BLOCKED' && data.is_actual_fraud === 1) marginChange += data.amount;
-          if (newTx.final_decision === 'HUMAN_REVIEW') marginChange -= 15.0;
-          if (newTx.final_decision === 'APPROVED' && data.is_actual_fraud === 1) marginChange -= (data.amount + 25.0);
+          if (newTx.final_decision === 'HUMAN_REVIEW') marginChange -= 1250.0;
+          if (newTx.final_decision === 'APPROVED' && data.is_actual_fraud === 1) marginChange -= (data.amount + 2000.0);
 
           return {
             totalCount: prev.totalCount + 1,
@@ -327,7 +336,7 @@ export default function Home() {
           <div className="mt-3 pt-3 border-t border-slate-800 text-xs text-slate-400 flex justify-between items-center">
             <span>Net Saved Margin:</span>
             <span className="font-bold text-emerald-400 font-mono text-sm">
-              ${stats.netSavedMargin.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              ₹{stats.netSavedMargin.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </span>
           </div>
         </div>
@@ -392,7 +401,7 @@ export default function Home() {
                     </div>
                     <div className="flex justify-between text-xs font-mono text-slate-300 mb-2">
                       <span className="text-slate-400">Amount:</span>
-                      <span className="font-bold text-emerald-400">${tx.amount.toFixed(2)}</span>
+                      <span className="font-bold text-emerald-400">₹{tx.amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                     </div>
                   </div>
 
@@ -420,13 +429,13 @@ export default function Home() {
       {/* Stream Table */}
       <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
         <h2 className="text-base font-bold text-white mb-4 flex items-center gap-2">
-          <Clock className="w-5 h-5 text-blue-400" /> Live Transaction Stream
+          <Clock className="w-5 h-5 text-blue-400" /> Live Transaction Stream <span className="text-[10px] text-slate-400 font-mono bg-slate-950 px-2 py-0.5 rounded border border-slate-800">IST (UTC+5:30)</span>
         </h2>
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs font-mono">
             <thead className="bg-slate-950 text-slate-400 uppercase text-[10px] border-b border-slate-800">
               <tr>
-                <th className="p-3">Time</th>
+                <th className="p-3">Time (IST)</th>
                 <th className="p-3">TX ID</th>
                 <th className="p-3">Amount</th>
                 <th className="p-3">Risk Score</th>
@@ -442,7 +451,7 @@ export default function Home() {
                   <tr key={tx.tx_id} className="hover:bg-slate-800/40">
                     <td className="p-3 text-slate-400">{cleanText(tx.timestamp)}</td>
                     <td className="p-3 font-bold text-slate-100">{cleanText(tx.tx_id)}</td>
-                    <td className="p-3 font-sans font-bold text-white">${tx.amount.toFixed(2)}</td>
+                    <td className="p-3 font-sans font-bold text-white">₹{tx.amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                     <td className="p-3 font-bold text-slate-200">{tx.risk_score.toFixed(3)}</td>
                     <td className="p-3 text-orange-400 font-bold">{tx.stage1_latency_us} μs</td>
                     <td className="p-3">
