@@ -45,10 +45,10 @@ export default function Home() {
   const [stats, setStats] = useState({
     totalCount: 0,
     hotPathCount: 0,
-    warmPathCount: 0,
+    coldPathCount: 0,
     netSavedMargin: 27135.19,
     avgHotPathUs: 120,
-    avgWarmPathMs: 1.85,
+    avgColdPathMs: 1.85,
   });
 
   useEffect(() => {
@@ -67,7 +67,7 @@ export default function Home() {
         const data = await response.json();
         tick += 1;
         setIsConnected(true);
-        const isWarmPath = data.stage2_latency_us > 0;
+        const isColdPath = data.stage2_latency_us > 0;
         const riskScore = data.risk_score;
 
         const newTx: Transaction = {
@@ -103,11 +103,11 @@ export default function Home() {
 
           return {
             totalCount: prev.totalCount + 1,
-            hotPathCount: prev.hotPathCount + (isWarmPath ? 0 : 1),
-            warmPathCount: prev.warmPathCount + (isWarmPath ? 1 : 0),
+            hotPathCount: prev.hotPathCount + (isColdPath ? 0 : 1),
+            coldPathCount: prev.coldPathCount + (isColdPath ? 1 : 0),
             netSavedMargin: prev.netSavedMargin + marginChange,
             avgHotPathUs: Math.round((prev.avgHotPathUs * prev.totalCount + data.stage1_latency_us) / (prev.totalCount + 1)),
-            avgWarmPathMs: isWarmPath ? parseFloat(((prev.avgWarmPathMs * prev.warmPathCount + data.stage2_latency_us / 1000) / (prev.warmPathCount + 1)).toFixed(2)) : prev.avgWarmPathMs,
+            avgColdPathMs: isColdPath ? parseFloat(((prev.avgColdPathMs * prev.coldPathCount + data.stage2_latency_us / 1000) / (prev.coldPathCount + 1)).toFixed(2)) : prev.avgColdPathMs,
           };
         });
       } catch (err) {
@@ -146,7 +146,7 @@ export default function Home() {
               CASCADE RISK ENGINE <span className="text-[10px] tracking-widest text-blue-400 bg-blue-950 px-2.5 py-0.5 rounded-full border border-blue-800 font-mono">TRACK 02</span>
             </h1>
             <p className="text-xs text-slate-400 mt-0.5">
-              Two-Stage Hot/Warm Path Cascade + Conformal Risk Guarantees
+              Two-Stage Hot/Cold Path Cascade + Conformal Risk Guarantees
             </p>
           </div>
         </div>
@@ -214,14 +214,14 @@ export default function Home() {
         <div className="bg-slate-900 border border-blue-500/30 rounded-2xl p-5">
           <div className="flex justify-between items-start">
             <span className="text-xs font-bold uppercase tracking-wider text-blue-400 flex items-center gap-1.5">
-              <Cpu size={15} /> Stage 2 — Warm Path
+              <Cpu size={15} /> Stage 2 — Cold Path
             </span>
             <span className="text-[10px] font-mono bg-blue-500/10 text-blue-300 border border-blue-500/30 px-2 py-0.5 rounded font-bold">
               LIGHTGBM + CONFORMAL
             </span>
           </div>
           <div className="mt-3 flex items-baseline gap-2">
-            <span className="text-4xl font-bold text-blue-300 font-mono">{stats.avgWarmPathMs}</span>
+            <span className="text-4xl font-bold text-blue-300 font-mono">{stats.avgColdPathMs}</span>
             <span className="text-blue-500 font-bold font-mono text-xs">ms / tx</span>
           </div>
           <div className="mt-3 pt-3 border-t border-slate-800 text-xs text-slate-400 flex justify-between items-center">

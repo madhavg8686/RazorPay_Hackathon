@@ -52,26 +52,26 @@ def get_metrics():
 
 
 def _generate_transaction(i: int) -> dict:
-    is_warm_path = i % 3 == 0
+    is_cold_path = i % 3 == 0
     is_fraud = 1 if i % 5 == 0 else 0
     return {
         "tx_id": f"tx_{i:04d}",
         "merchant_id": "merchant_123",
         "amount": round(float(np.random.exponential(50) + 10), 2),
-        "stage1_action": "Escalated" if is_warm_path else "Auto-Cleared",
+        "stage1_action": "Escalated" if is_cold_path else "Auto-Cleared",
         "conformal_set": (
-            "{1}" if (is_warm_path and i % 5 == 0)
-            else "{0, 1}" if is_warm_path
+            "{1}" if (is_cold_path and i % 5 == 0)
+            else "{0, 1}" if is_cold_path
             else "{0}"
         ),
         "final_decision": (
-            "BLOCKED" if (is_warm_path and i % 5 == 0)
-            else "HUMAN_REVIEW" if is_warm_path
+            "BLOCKED" if (is_cold_path and i % 5 == 0)
+            else "HUMAN_REVIEW" if is_cold_path
             else "APPROVED"
         ),
-        "risk_score": round(float(np.random.beta(2, 8 if not is_warm_path else 2)), 3),
+        "risk_score": round(float(np.random.beta(2, 8 if not is_cold_path else 2)), 3),
         "stage1_latency_us": 120,
-        "stage2_latency_us": 1850 if is_warm_path else 0,
+        "stage2_latency_us": 1850 if is_cold_path else 0,
         "timestamp": time.strftime("%H:%M:%S"),
         "is_actual_fraud": is_fraud,
     }
