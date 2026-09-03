@@ -1,7 +1,7 @@
 use dashmap::DashMap;
-use serde::{Deserialize, Serialize};
 use pyo3::prelude::*;
 use pyo3::types::PyDict;
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Transaction {
@@ -42,19 +42,16 @@ impl EntityState {
         let val = if is_disputed { 1.0 } else { 0.0 };
         self.total_count += 1;
 
-        // EWMA Dispute Rate & Volatility
         let delta = val - self.ewma_dispute_rate;
         self.ewma_dispute_rate += self.alpha * delta;
         self.ewma_variance = (1.0 - self.alpha) * (self.ewma_variance + self.alpha * delta * delta);
 
         let volatility = self.ewma_variance.sqrt();
-
-        // CUSUM detector logic
         self.cusum_pos = (self.cusum_pos + (volatility - drift)).max(0.0);
 
         if self.cusum_pos > threshold {
             let severity = self.cusum_pos;
-            self.cusum_pos = 0.0; // Reset state after triggering alert
+            self.cusum_pos = 0.0;
             Some(severity)
         } else {
             None
@@ -80,8 +77,7 @@ impl StreamingLayer {
     }
 
     pub fn process_transaction(&self, tx: &Transaction) -> Option<SpikeAlert> {
-        let mut entry = self.states.entry(tx.merchant_id.clone())
-            .or_insert_with(|| EntityState::new(self.alpha));
+        let mut entry = self.states.entry(tx.merchant_id.clone()).or_insert_with(|| EntityState::new(self.alpha));
 
         if let Some(severity) = entry.update_and_detect(tx.is_disputed, self.cusum_threshold, self.cusum_drift) {
             Some(SpikeAlert {
@@ -118,24 +114,8 @@ pub struct PyTransaction {
 impl PyTransaction {
     #[new]
     pub fn new(id: String, merchant_id: String, bin: String, is_disputed: bool, timestamp_ms: u64) -> Self {
-        PyTransaction {
-            id,
-            merchant_id,
-            bin,
-            is_disputed,
-            timestamp_ms,
-        }
+        PyTransaction { id, merchant_id, bin, is_disputed, timestamp_ms }
     }
-}
-
-#[pyclass]
-pub struct PySpikeAlert {
-    #[pyo3(get, set)]
-    pub entity_id: String,
-    #[pyo3(get, set)]
-    pub timestamp_ms: u64,
-    #[pyo3(get, set)]
-    pub severity: f64,
 }
 
 #[pyclass]
@@ -152,7 +132,7 @@ impl PyStreamingLayer {
         }
     }
 
-    pub fn process_transaction(&self, tx: &PyTransaction) -> Option<PyObject> {
+    pub fn process_transaction(&self, py: Python<'_>, tx: &PyTransaction) -> Option<PyObject> {
         let transaction = Transaction {
             id: tx.id.clone(),
             merchant_id: tx.merchant_id.clone(),
@@ -162,74 +142,45 @@ impl PyStreamingLayer {
         };
 
         if let Some(alert) = self.layer.process_transaction(&transaction) {
-            Python::with_gil(|py| {
-                let alert_dict = PyDict::new_bound(py);
-                alert_dict.set_item("entity_id", &alert.entity_id).ok();
-                alert_dict.set_item("timestamp_ms", alert.timestamp_ms).ok();
-                alert_dict.set_item("severity", alert.severity).ok();
-                Some(alert_dict.into())
-            })
+            let alert_dict = PyDict::new_bound(py);
+            alert_dict.set_item("entity_id", &alert.entity_id).ok();
+            alert_dict.set_item("timestamp_ms", alert.timestamp_ms).ok();
+            alert_dict.set_item("severity", alert.severity).ok();
+            Some(alert_dict.into_py(py))
         } else {
             None
         }
     }
 
-    pub fn process_transaction_batch(&self, transactions: Vec<PyObject>) -> PyResult<Vec<PyObject>> {
-        Python::with_gil(|py| {
-            let mut results = Vec::new();
-
-            for tx_obj in transactions {
-                let tx: PyTransaction = tx_obj.extract(py)?;
-                let transaction = Transaction {
-                    id: tx.id.clone(),
-                    merchant_id: tx.merchant_id.clone(),
-                    bin: tx.bin.clone(),
-                    is_disputed: tx.is_disputed,
-                    timestamp_ms: tx.timestamp_ms,
-                };
-
-                if let Some(alert) = self.layer.process_transaction(&transaction) {
-                    let alert_dict = PyDict::new_bound(py);
-                    alert_dict.set_item("entity_id", &alert.entity_id)?;
-                    alert_dict.set_item("timestamp_ms", alert.timestamp_ms)?;
-                    alert_dict.set_item("severity", alert.severity)?;
-                    results.push(alert_dict.into());
-                }
-            }
-
-            Ok(results)
-        })
-    }
-}
-
-#[pyfunction]
-pub fn process_transaction_batch_json(json_list: Vec<String>, alpha: f64, threshold: f64, drift: f64) -> PyResult<Vec<PyObject>> {
-    let streaming_layer = StreamingLayer::new(alpha, threshold, drift);
-    
-    Python::with_gil(|py| {
+    pub fn process_transaction_batch(&self, py: Python<'_>, transactions: Vec<PyObject>) -> PyResult<Vec<PyObject>> {
         let mut results = Vec::new();
 
-        for json_str in json_list {
-            if let Ok(tx) = serde_json::from_str::<Transaction>(&json_str) {
-                if let Some(alert) = streaming_layer.process_transaction(&tx) {
-                    let alert_dict = PyDict::new_bound(py);
-                    alert_dict.set_item("entity_id", &alert.entity_id)?;
-                    alert_dict.set_item("timestamp_ms", alert.timestamp_ms)?;
-                    alert_dict.set_item("severity", alert.severity)?;
-                    results.push(alert_dict.into());
-                }
+        for tx_obj in transactions {
+            let tx: PyTransaction = tx_obj.extract(py)?;
+            let transaction = Transaction {
+                id: tx.id.clone(),
+                merchant_id: tx.merchant_id.clone(),
+                bin: tx.bin.clone(),
+                is_disputed: tx.is_disputed,
+                timestamp_ms: tx.timestamp_ms,
+            };
+
+            if let Some(alert) = self.layer.process_transaction(&transaction) {
+                let alert_dict = PyDict::new_bound(py);
+                alert_dict.set_item("entity_id", &alert.entity_id)?;
+                alert_dict.set_item("timestamp_ms", alert.timestamp_ms)?;
+                alert_dict.set_item("severity", alert.severity)?;
+                results.push(alert_dict.into_py(py));
             }
         }
 
         Ok(results)
-    })
+    }
 }
 
 #[pymodule]
 fn fraud_spike_detector(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyTransaction>()?;
-    m.add_class::<PySpikeAlert>()?;
     m.add_class::<PyStreamingLayer>()?;
-    m.add_function(wrap_pyfunction!(process_transaction_batch_json, m)?)?;
     Ok(())
 }
