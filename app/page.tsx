@@ -146,7 +146,7 @@ export default function Home() {
               CASCADE RISK ENGINE <span className="text-[10px] tracking-widest text-blue-400 bg-blue-950 px-2.5 py-0.5 rounded-full border border-blue-800 font-mono">TRACK 02</span>
             </h1>
             <p className="text-xs text-slate-400 mt-0.5">
-              Two-Stage Hot/Warm Path Cascade + Conformal Risk Guarantees[cite: 3]
+              Two-Stage Hot/Warm Path Cascade + Conformal Risk Guarantees
             </p>
           </div>
         </div>
@@ -217,7 +217,7 @@ export default function Home() {
               <Cpu size={15} /> Stage 2 — Warm Path
             </span>
             <span className="text-[10px] font-mono bg-blue-500/10 text-blue-300 border border-blue-500/30 px-2 py-0.5 rounded font-bold">
-              LIGHTGBM + CONFORMAL[cite: 3]
+              LIGHTGBM + CONFORMAL
             </span>
           </div>
           <div className="mt-3 flex items-baseline gap-2">
@@ -260,7 +260,7 @@ export default function Home() {
             <h2 className="text-base font-bold text-white flex items-center gap-2">
               <UserCheck className="w-5 h-5 text-amber-400" /> Manual Review Queue
               <span className="text-xs font-mono bg-amber-500/20 text-amber-300 border border-amber-500/30 px-2.5 py-0.5 rounded-full font-bold">
-                Conformal Set = {'{0, 1}'}[cite: 3]
+                Conformal Set = {'{0, 1}'}
               </span>
             </h2>
             <p className="text-xs text-slate-400 mt-1">
