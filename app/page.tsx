@@ -163,8 +163,17 @@ export default function Home() {
     };
   }, []);
 
-  const resolveReview = (id: string) => {
+  // Update resolution logic to update the transaction's decision in the live stream table
+  const resolveReview = (id: string, decision: 'APPROVED' | 'BLOCKED') => {
+    // 1. Remove from the manual review queue
     setReviewQueue((prev) => prev.filter((item) => item.tx_id !== id));
+
+    // 2. Update decision status in the Live Stream Table
+    setTransactions((prev) =>
+      prev.map((tx) =>
+        tx.tx_id === id ? { ...tx, final_decision: decision } : tx
+      )
+    );
   };
 
   const offloadPct = stats.totalCount > 0 ? ((stats.hotPathCount / stats.totalCount) * 100).toFixed(1) : '94.2';
@@ -344,16 +353,16 @@ export default function Home() {
                   </div>
 
                   <div className="flex gap-2 pt-3 border-t border-slate-800">
-                    {/* Approved Action -> Green */}
+                    {/* Approved Action -> Sets decision in stream table to APPROVED */}
                     <button 
-                      onClick={() => resolveReview(tx.tx_id)}
+                      onClick={() => resolveReview(tx.tx_id, 'APPROVED')}
                       className="flex-1 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-lg flex items-center justify-center gap-1 transition"
                     >
                       <CheckCircle2 size={13} /> Approve
                     </button>
-                    {/* Rejected/Blocked Action -> Red */}
+                    {/* Blocked Action -> Sets decision in stream table to BLOCKED */}
                     <button 
-                      onClick={() => resolveReview(tx.tx_id)}
+                      onClick={() => resolveReview(tx.tx_id, 'BLOCKED')}
                       className="flex-1 py-1.5 bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs rounded-lg flex items-center justify-center gap-1 transition"
                     >
                       <XCircle size={13} /> Block
