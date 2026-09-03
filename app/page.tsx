@@ -32,7 +32,7 @@ interface Transaction {
   is_actual_fraud: number;
 }
 
-// Utility function to strip citation tags like or cite:3 from dynamic/static strings
+// Utility function to strip citation tags from dynamic/static strings
 function cleanText(text: string): string {
   if (!text) return '';
   return text.replace(/\[?cite:\s*\d+\]?/gi, '').trim();
@@ -58,7 +58,7 @@ function getCriticality(score: number) {
     return {
       percentage: `${percentage}%`,
       level: 'MEDIUM',
-      badgeClass: 'bg-yellow-950/80 text-yellow-400 border-yellow-800/80',
+      badgeClass: 'bg-orange-900/40 text-orange-300 border-orange-700/50',
     };
   }
   return {
@@ -106,7 +106,6 @@ export default function Home() {
         const isWarmPath = data.stage2_latency_us > 0;
         const riskScore = data.risk_score;
 
-        // Clean dynamic string properties from API response
         const newTx: Transaction = {
           tx_id: cleanText(data.tx_id),
           merchant_id: cleanText(data.merchant_id),
@@ -228,18 +227,18 @@ export default function Home() {
       {/* Latency Benchmarks */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
         {/* Stage 1 */}
-        <div className="bg-slate-900 border border-amber-500/30 rounded-2xl p-5">
+        <div className="bg-slate-900 border border-orange-500/30 rounded-2xl p-5">
           <div className="flex justify-between items-start">
-            <span className="text-xs font-bold uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
-              <Zap size={15} className="fill-amber-400" /> Stage 1 — Hot Path
+            <span className="text-xs font-bold uppercase tracking-wider text-orange-400 flex items-center gap-1.5">
+              <Zap size={15} className="fill-orange-400" /> Stage 1 — Hot Path
             </span>
-            <span className="text-[10px] font-mono bg-amber-500/10 text-amber-300 border border-amber-500/30 px-2 py-0.5 rounded font-bold">
+            <span className="text-[10px] font-mono bg-orange-500/10 text-orange-300 border border-orange-500/30 px-2 py-0.5 rounded font-bold">
               LOGISTIC FILTER
             </span>
           </div>
           <div className="mt-3 flex items-baseline gap-2">
-            <span className="text-4xl font-bold text-amber-300 font-mono">{stats.avgHotPathUs}</span>
-            <span className="text-amber-500 font-bold font-mono text-xs">μs / tx</span>
+            <span className="text-4xl font-bold text-orange-300 font-mono">{stats.avgHotPathUs}</span>
+            <span className="text-orange-500 font-bold font-mono text-xs">μs / tx</span>
           </div>
           <div className="mt-3 pt-3 border-t border-slate-800 text-xs text-slate-400 flex justify-between items-center">
             <span>Cleared Traffic:</span>
@@ -291,12 +290,12 @@ export default function Home() {
       </div>
 
       {/* Manual Review Panel */}
-      <div className="bg-slate-900 border border-amber-500/40 rounded-2xl p-6 mb-8">
+      <div className="bg-slate-900 border border-orange-500/40 rounded-2xl p-6 mb-8">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-5">
           <div>
             <h2 className="text-base font-bold text-white flex items-center gap-2">
-              <UserCheck className="w-5 h-5 text-amber-400" /> Manual Review Queue
-              <span className="text-xs font-mono bg-amber-500/20 text-amber-300 border border-amber-500/30 px-2.5 py-0.5 rounded-full font-bold">
+              <UserCheck className="w-5 h-5 text-orange-400" /> Manual Review Queue
+              <span className="text-xs font-mono bg-orange-500/20 text-orange-300 border border-orange-500/30 px-2.5 py-0.5 rounded-full font-bold">
                 Conformal Set = {'{0, 1}'}
               </span>
             </h2>
@@ -304,7 +303,7 @@ export default function Home() {
               Transactions flagged with ambiguous sets for human inspection.
             </p>
           </div>
-          <span className="text-xs font-mono font-bold bg-amber-500/10 text-amber-400 border border-amber-500/30 px-3 py-1.5 rounded-xl">
+          <span className="text-xs font-mono font-bold bg-orange-500/10 text-orange-400 border border-orange-500/30 px-3 py-1.5 rounded-xl">
             {reviewQueue.length} Pending
           </span>
         </div>
@@ -319,7 +318,7 @@ export default function Home() {
               const risk = getCriticality(tx.risk_score);
 
               return (
-                <div key={tx.tx_id} className="bg-slate-950 border border-amber-500/30 rounded-xl p-4 flex flex-col justify-between space-y-3">
+                <div key={tx.tx_id} className="bg-slate-950 border border-orange-500/40 rounded-xl p-4 flex flex-col justify-between space-y-3">
                   <div>
                     {/* Fraud Likelihood Score & Criticality Tier */}
                     <div className="flex justify-between items-start mb-3 p-3 rounded-lg bg-slate-900 border border-slate-800">
@@ -345,12 +344,14 @@ export default function Home() {
                   </div>
 
                   <div className="flex gap-2 pt-3 border-t border-slate-800">
+                    {/* Approved Action -> Green */}
                     <button 
                       onClick={() => resolveReview(tx.tx_id)}
                       className="flex-1 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-lg flex items-center justify-center gap-1 transition"
                     >
                       <CheckCircle2 size={13} /> Approve
                     </button>
+                    {/* Rejected/Blocked Action -> Red */}
                     <button 
                       onClick={() => resolveReview(tx.tx_id)}
                       className="flex-1 py-1.5 bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs rounded-lg flex items-center justify-center gap-1 transition"
@@ -392,7 +393,7 @@ export default function Home() {
                     <td className="p-3 font-bold text-slate-100">{cleanText(tx.tx_id)}</td>
                     <td className="p-3 font-sans font-bold text-white">${tx.amount.toFixed(2)}</td>
                     <td className="p-3 font-bold text-slate-200">{tx.risk_score.toFixed(3)}</td>
-                    <td className="p-3 text-amber-400 font-bold">{tx.stage1_latency_us} μs</td>
+                    <td className="p-3 text-orange-400 font-bold">{tx.stage1_latency_us} μs</td>
                     <td className="p-3">
                       {tx.stage2_latency_us > 0 ? (
                         <span className="text-blue-400 font-bold">{(tx.stage2_latency_us / 1000).toFixed(2)} ms</span>
@@ -402,10 +403,11 @@ export default function Home() {
                     </td>
                     <td className="p-3 text-purple-300 font-bold">{cleanText(tx.conformal_set)}</td>
                     <td className="p-3">
+                      {/* Decision Badges: Green for Approved, Red for Blocked, Orange for Human Review */}
                       <span className={`px-2.5 py-1 rounded text-[10px] font-sans font-bold border ${
-                        tx.final_decision === 'AUTO_CLEARED' ? 'bg-emerald-950 text-emerald-400 border-emerald-800' :
-                        tx.final_decision === 'AUTO_BLOCKED' ? 'bg-rose-950 text-rose-400 border-rose-800' :
-                        'bg-amber-950 text-amber-400 border-amber-800'
+                        tx.final_decision === 'AUTO_CLEARED' || tx.final_decision === 'APPROVED' ? 'bg-emerald-950 text-emerald-400 border-emerald-800' :
+                        tx.final_decision === 'AUTO_BLOCKED' || tx.final_decision === 'BLOCKED' || tx.final_decision === 'REJECTED' ? 'bg-rose-950 text-rose-400 border-rose-800' :
+                        'bg-orange-950 text-orange-400 border-orange-800'
                       }`}>
                         {cleanText(tx.final_decision)}
                       </span>
