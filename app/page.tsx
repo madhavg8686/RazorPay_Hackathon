@@ -32,6 +32,36 @@ interface Transaction {
   is_actual_fraud: number;
 }
 
+// Helper function to derive Fraud Likelihood and Criticality Tiers
+function getCriticality(score: number) {
+  const percentage = (score * 100).toFixed(1);
+
+  if (score >= 0.75) {
+    return {
+      percentage: `${percentage}%`,
+      level: 'CRITICAL',
+      badgeClass: 'bg-red-950/80 text-red-400 border-red-800/80',
+    };
+  } if (score >= 0.50) {
+    return {
+      percentage: `${percentage}%`,
+      level: 'HIGH',
+      badgeClass: 'bg-orange-950/80 text-orange-400 border-orange-800/80',
+    };
+  } if (score >= 0.25) {
+    return {
+      percentage: `${percentage}%`,
+      level: 'MEDIUM',
+      badgeClass: 'bg-yellow-950/80 text-yellow-400 border-yellow-800/80',
+    };
+  }
+  return {
+    percentage: `${percentage}%`,
+    level: 'LOW',
+    badgeClass: 'bg-emerald-950/80 text-emerald-400 border-emerald-800/80',
+  };
+}
+
 export default function Home() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [reviewQueue, setReviewQueue] = useState<Transaction[]>([]);
@@ -278,42 +308,52 @@ export default function Home() {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {reviewQueue.map((tx) => (
-              <div key={tx.tx_id} className="bg-slate-950 border border-amber-500/30 rounded-xl p-4 flex flex-col justify-between">
-                <div>
-                  <div className="flex justify-between items-center mb-3 bg-amber-950/60 border border-amber-800/40 p-2.5 rounded-lg">
-                    <span className="text-xs font-bold uppercase text-amber-300 flex items-center gap-1">
-                      <AlertTriangle size={14} className="text-amber-400" /> Risk Score:
-                    </span>
-                    <span className="text-base font-bold font-mono text-amber-400">{tx.risk_score.toFixed(3)}</span>
+            {reviewQueue.map((tx) => {
+              const risk = getCriticality(tx.risk_score);
+
+              return (
+                <div key={tx.tx_id} className="bg-slate-950 border border-amber-500/30 rounded-xl p-4 flex flex-col justify-between space-y-3">
+                  <div>
+                    {/* Fraud Likelihood Score & Criticality Tier */}
+                    <div className="flex justify-between items-start mb-3 p-3 rounded-lg bg-slate-900 border border-slate-800">
+                      <div>
+                        <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block mb-0.5">
+                          Fraud Likelihood
+                        </span>
+                        <span className="text-xl font-black font-mono text-white">{risk.percentage}</span>
+                      </div>
+                      <span className={`text-[10px] font-bold tracking-wider px-2.5 py-1 rounded-md border ${risk.badgeClass}`}>
+                        {risk.level}
+                      </span>
+                    </div>
+
+                    <div className="flex justify-between text-xs font-mono text-slate-300 mb-1">
+                      <span className="text-slate-400">TX ID:</span>
+                      <span className="font-bold text-white">{tx.tx_id}</span>
+                    </div>
+                    <div className="flex justify-between text-xs font-mono text-slate-300 mb-2">
+                      <span className="text-slate-400">Amount:</span>
+                      <span className="font-bold text-emerald-400">${tx.amount.toFixed(2)}</span>
+                    </div>
                   </div>
 
-                  <div className="flex justify-between text-xs font-mono text-slate-300 mb-1">
-                    <span className="text-slate-400">TX ID:</span>
-                    <span className="font-bold text-white">{tx.tx_id}</span>
-                  </div>
-                  <div className="flex justify-between text-xs font-mono text-slate-300 mb-3">
-                    <span className="text-slate-400">Amount:</span>
-                    <span className="font-bold text-emerald-400">${tx.amount.toFixed(2)}</span>
+                  <div className="flex gap-2 pt-3 border-t border-slate-800">
+                    <button 
+                      onClick={() => resolveReview(tx.tx_id)}
+                      className="flex-1 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-lg flex items-center justify-center gap-1 transition"
+                    >
+                      <CheckCircle2 size={13} /> Approve
+                    </button>
+                    <button 
+                      onClick={() => resolveReview(tx.tx_id)}
+                      className="flex-1 py-1.5 bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs rounded-lg flex items-center justify-center gap-1 transition"
+                    >
+                      <XCircle size={13} /> Block
+                    </button>
                   </div>
                 </div>
-
-                <div className="flex gap-2 mt-2 pt-3 border-t border-slate-800">
-                  <button 
-                    onClick={() => resolveReview(tx.tx_id)}
-                    className="flex-1 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-lg flex items-center justify-center gap-1"
-                  >
-                    <CheckCircle2 size={13} /> Approve
-                  </button>
-                  <button 
-                    onClick={() => resolveReview(tx.tx_id)}
-                    className="flex-1 py-1.5 bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs rounded-lg flex items-center justify-center gap-1"
-                  >
-                    <XCircle size={13} /> Block
-                  </button>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
