@@ -39,6 +39,18 @@ def get_metrics():
 def _generate_transaction(i: int) -> dict:
     is_warm_path = i % 3 == 0
     is_fraud = 1 if i % 5 == 0 else 0
+
+    # Dynamic Stage 1 Hot Path latency (~105μs - 135μs)
+    stage1_latency = int(np.clip(np.random.normal(120, 5), 105, 135))
+    
+    # Dynamic Stage 2 Warm Path latency (~1.2ms - 1.9ms / 1200μs - 1900μs)
+    stage2_latency = int(np.clip(np.random.normal(1550, 120), 1200, 1900)) if is_warm_path else 0
+
+    # Calculate dynamic speedup factor compared to a single monolithic model (~2.5ms / 2500μs)
+    single_model_latency = 2500
+    effective_latency = stage1_latency + stage2_latency
+    speedup_factor = round(single_model_latency / effective_latency, 1)
+
     return {
         "tx_id": f"tx_{i:04d}",
         "merchant_id": "merchant_123",
@@ -55,8 +67,9 @@ def _generate_transaction(i: int) -> dict:
             else "APPROVED"
         ),
         "risk_score": round(float(np.random.beta(2, 8 if not is_warm_path else 2)), 3),
-        "stage1_latency_us": 120,
-        "stage2_latency_us": 1850 if is_warm_path else 0,
+        "stage1_latency_us": stage1_latency,
+        "stage2_latency_us": stage2_latency,
+        "speedup_factor": speedup_factor,
         "timestamp": time.strftime("%H:%M:%S"),
         "is_actual_fraud": is_fraud,
     }
