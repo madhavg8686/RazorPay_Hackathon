@@ -52,34 +52,36 @@ export default function Home() {
   });
 
   useEffect(() => {
-    // Guard against Server-Side Rendering (SSR) build environment
     if (typeof window === 'undefined') return;
 
-    const wsUrl = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8000/ws/transactions';
-    const ws = new WebSocket(wsUrl);
+    let tick = 0;
+    let isPolling = true;
 
-    ws.onopen = () => setIsConnected(true);
-    ws.onclose = () => setIsConnected(false);
-    ws.onerror = () => setIsConnected(false);
-
-    ws.onmessage = (event) => {
+    const pollStream = async () => {
       try {
-        const data = JSON.parse(event.data);
+        const response = await fetch(`/api/live-stream-tick?tick=${tick + 1}`, {
+          cache: 'no-store',
+        });
+        if (!response.ok) throw new Error(`Stream request failed: ${response.status}`);
+
+        const data = await response.json();
+        tick += 1;
+        setIsConnected(true);
         const isWarmPath = data.stage2_latency_us > 0;
-        const riskScore = parseFloat((isWarmPath ? 0.72 + Math.random() * 0.25 : Math.random() * 0.35).toFixed(3));
+        const riskScore = data.risk_score;
 
         const newTx: Transaction = {
-          tx_id: data.id,
-          merchant_id: data.merchant_id || 'mch_902',
+          tx_id: data.tx_id,
+          merchant_id: data.merchant_id,
           amount: data.amount,
-          stage1_action: isWarmPath ? 'Escalated' : 'Auto-Cleared',
-          conformal_set: `{${data.conformal_set.join(', ')}}`,
-          final_decision: data.action,
+          stage1_action: data.stage1_action,
+          conformal_set: data.conformal_set,
+          final_decision: data.final_decision,
           risk_score: riskScore,
-          stage1_latency_us: data.stage1_latency_us || 120,
-          stage2_latency_us: data.stage2_latency_us || 0,
-          timestamp: data.timestamp || new Date().toLocaleTimeString(),
-          is_actual_fraud: data.is_actual_fraud ?? 0,
+          stage1_latency_us: data.stage1_latency_us,
+          stage2_latency_us: data.stage2_latency_us,
+          timestamp: data.timestamp,
+          is_actual_fraud: data.is_actual_fraud,
         };
 
         setTransactions((prev) => [newTx, ...prev.slice(0, 19)]);
@@ -89,15 +91,15 @@ export default function Home() {
           lowestScore: Math.min(prev.lowestScore, riskScore),
         }));
 
-        if (data.action === 'HUMAN_REVIEW') {
+        if (data.final_decision === 'HUMAN_REVIEW') {
           setReviewQueue((prev) => [newTx, ...prev.filter((t) => t.tx_id !== newTx.tx_id)]);
         }
 
         setStats((prev) => {
           let marginChange = 0;
-          if (data.action === 'AUTO_BLOCKED' && data.is_actual_fraud === 1) marginChange += data.amount;
-          if (data.action === 'HUMAN_REVIEW') marginChange -= 15.0; 
-          if (data.action === 'AUTO_CLEARED' && data.is_actual_fraud === 1) marginChange -= (data.amount + 25.0); 
+          if (data.final_decision === 'BLOCKED' && data.is_actual_fraud === 1) marginChange += data.amount;
+          if (data.final_decision === 'HUMAN_REVIEW') marginChange -= 15.0;
+          if (data.final_decision === 'APPROVED' && data.is_actual_fraud === 1) marginChange -= (data.amount + 25.0);
 
           return {
             totalCount: prev.totalCount + 1,
@@ -109,12 +111,19 @@ export default function Home() {
           };
         });
       } catch (err) {
-        console.error('Failed to parse WebSocket message:', err);
+        setIsConnected(false);
+        console.error('Failed to fetch live transaction:', err);
       }
     };
 
+    void pollStream();
+    const interval = window.setInterval(() => {
+      if (isPolling) void pollStream();
+    }, 1000);
+
     return () => {
-      ws.close();
+      isPolling = false;
+      window.clearInterval(interval);
     };
   }, []);
 
@@ -359,7 +368,7 @@ export default function Home() {
               ) : (
                 <tr>
                   <td colSpan={8} className="p-8 text-center text-slate-500 font-sans text-xs">
-                    Connecting to stream... Start your backend server on port 8000.
+                    Connecting to the Vercel API stream...
                   </td>
                 </tr>
               )}
